@@ -26,13 +26,11 @@ ff_check_required_binaries(){
   zip=$(command -v zip)
   jq=$(command -v jq)
   openssl=$(command -v openssl)
-  base64=$(command -v base64)
 
   ( [ "$curl" != "" ] && \
     [ "$perl" != "" ] && \
     [ "$openssl" != "" ] && \
     [ "$jq" != "" ] && \
-    [ "$base64" != "" ] && \
     [ "$zip" != "" ] ) || \
   { ff_log "Cannot find needed binaries, make sure you have curl, perl and zip in your PATH" && return 1; }
 }
@@ -114,8 +112,8 @@ ff_do_jwt(){
 
   local jwt_header_json='{ "alg": "HS256", "typ": "JWT" }' #, "kid": "0001"}'
   local jwt_payload_json='{ "iss": "'"${ff_jwt_issuer}"'", "jti": "'"${jti_nonce}"'", "iat": '"${start_t}"', "exp": '"${end_t}"' }'
-  local jwt_hp_base64=$(printf '%s' "${jwt_header_json}" | $base64 -w0).$(printf '%s' "${jwt_payload_json}" | $base64 -w0)
-  local signature=$(printf '%s' "${jwt_hp_base64}" | $openssl dgst -binary -sha256 -hmac "${ff_jwt_secret}" | $base64 -w0)
+  local jwt_hp_base64=$(printf '%s' "${jwt_header_json}" | $openssl base64 -w0).$(printf '%s' "${jwt_payload_json}" | $openssl base64 -w0)
+  local signature=$(printf '%s' "${jwt_hp_base64}" | $openssl dgst -binary -sha256 -hmac "${ff_jwt_secret}" | $openssl base64 -w0)
   echo "${jwt_hp_base64}.${signature}"
 }
 
