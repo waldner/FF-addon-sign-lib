@@ -14,7 +14,7 @@ No special installation needed. Just put **`ff-sign-lib.sh`** wherever you want.
 
 - You should already have a directory containing your addon in source (ie, unpacked) form, with a manifest and all needed files. See [the official documentation](https://developer.mozilla.org/en-US/Add-ons/WebExtensions) for more information.
 
-- Find out your Mozilla API credentials. You can find them by loggin in to Mozilla, then going to your profile amd than "tools" -> "Manage API keys". You need the **JWT issuer** and **JWT secret** values.
+- Find out your Mozilla API credentials. You can find them by logging in to Mozilla, then going to your profile amd than "tools" -> "Manage API keys". You need the **JWT issuer** and **JWT secret** values.
 
 - Implement a function called `ff_get_userdef_credentials` that sets some environment variables with suitable values (`iff_jwt_issuer` and `ff_jwt_secret` from the previous step).
 
