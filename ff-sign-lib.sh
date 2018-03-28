@@ -112,8 +112,8 @@ ff_do_jwt(){
 
   local jwt_header_json='{ "alg": "HS256", "typ": "JWT" }' #, "kid": "0001"}'
   local jwt_payload_json='{ "iss": "'"${ff_jwt_issuer}"'", "jti": "'"${jti_nonce}"'", "iat": '"${start_t}"', "exp": '"${end_t}"' }'
-  local jwt_hp_base64=$(printf '%s' "${jwt_header_json}" | $openssl base64 -w0).$(printf '%s' "${jwt_payload_json}" | $openssl base64 -w0)
-  local signature=$(printf '%s' "${jwt_hp_base64}" | $openssl dgst -binary -sha256 -hmac "${ff_jwt_secret}" | $openssl base64 -w0)
+  local jwt_hp_base64=$(printf '%s' "${jwt_header_json}" | $openssl base64 -A).$(printf '%s' "${jwt_payload_json}" | $openssl base64 -A)
+  local signature=$(printf '%s' "${jwt_hp_base64}" | $openssl dgst -binary -sha256 -hmac "${ff_jwt_secret}" | $openssl base64 -A)
   echo "${jwt_hp_base64}.${signature}"
 }
 
@@ -145,6 +145,7 @@ ff_parse_args(){
   ff_zip_file=
   ff_result_json=
   ff_addon_download_url=
+  ff_addon_listed=
 
   while [ $# -gt 0 ]; do
 
@@ -169,6 +170,11 @@ ff_parse_args(){
         ff_addon_download_url=$2
         shift 2
         ;;
+      -l|--listed)
+        ff_addon_listed=$2
+        shift 2
+        ;;
+ 
       *)
         ff_log "Unknown option/arg: '$1', skipping..."
         shift
@@ -177,9 +183,37 @@ ff_parse_args(){
 
   done
 
+  if [[ ! "$ff_addon_listed" =~ ^1$ ]]; then
+    ff_addon_listed="unlisted"
+  else
+    ff_addon_listed="listed"
+  fi
 }
 
 ff_upload_addon(){
+
+  ff_check_api_initialized || return 1
+
+  ff_parse_args "$@"
+
+  ff_create_zip "$@" || return 1
+
+  local jwt_token=$(ff_do_jwt)
+  ff_do_curl -g -XPUT "https://addons.mozilla.org/api/v3/addons/${ff_addon_id}/versions/${ff_new_addon_version}/" -H "Authorization: JWT ${jwt_token}" --form "upload=@${ff_zip_file}" --form "channel=${ff_addon_listed}"
+
+  rm -rf "$ff_zip_file"
+
+  ff_log "Upload HTTP code: $ff_last_http_code"
+
+  if [ "$ff_last_http_code" != "201" ] && [ "$ff_last_http_code" != "202" ]; then
+    return 1
+  else
+    return 0
+  fi
+
+}
+
+ff_create_zip(){
 
   ff_check_api_initialized || return 1
 
@@ -208,22 +242,13 @@ ff_upload_addon(){
 
   ( cd "$addon_temp_dir" && $zip -q -r -FS "$ff_zip_file" .)
 
-  if [ $? -ne 0 ]; then
+  local result=$?
+
+  rm -rf "$addon_temp_dir"
+
+  if [ $result -ne 0 ]; then
     ff_log "Error creating zip file $ff_zip_file, terminating"
     return 1
-  fi
-
-  local jwt_token=$(ff_do_jwt)
-  ff_do_curl -g -XPUT "https://addons.mozilla.org/api/v3/addons/${ff_addon_id}/versions/${ff_new_addon_version}/" -H "Authorization: JWT ${jwt_token}" --form "upload=@${ff_zip_file}"
-
-  rm -rf "$addon_temp_dir" "$ff_zip_file"
-
-  ff_log "Upload HTTP code: $ff_last_http_code"
-
-  if [ "$ff_last_http_code" != "201" ] && [ "$ff_last_http_code" != "202" ]; then
-    return 1
-  else
-    return 0
   fi
 
 }
